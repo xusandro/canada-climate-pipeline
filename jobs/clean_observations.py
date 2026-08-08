@@ -1,6 +1,6 @@
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as F
-from pyspark.sql.types import StringType, StructField, StructType
+from pyspark.sql.types import StringType, StructField, StructType, IntegerType
 
 
 OBSERVATION_SCHEMA = StructType(
@@ -31,12 +31,22 @@ CANADA = "CA"
 
 CORE_ELEMENTS = ["TMAX", "TMIN", "PRCP", "TAVG", "SNOW", "SNWD"]
 
-path = "data/raw/2024.csv.gz"
+
+# The version using csv.gz does not contain header
+# compared to the version using csv which contains header
+SOURCE_PATH = "data/raw/2024.csv.gz"
 
 
 
 def transform_observations(df: DataFrame) -> DataFrame:
-    return df.filter(F.substring(F.col('id'), 1, 2) == CANADA)
+    return df.filter(
+        (F.substring(F.col('id'), 1, 2) == CANADA) 
+                     & (F.col('element').isin(CORE_ELEMENTS))
+    ).withColumn(
+        'date', F.to_date(F.col('date'), 'yyyyMMdd')
+    ).withColumn(
+        'data_value', F.col('data_value').cast('int')
+    )
 
 
 
@@ -49,10 +59,10 @@ def main() -> None:
         .getOrCreate()
     )
     spark.sparkContext.setLogLevel("ERROR")
-    df = spark.read.csv(path, schema=OBSERVATION_SCHEMA, header=False)
+    df = spark.read.csv(SOURCE_PATH, schema=OBSERVATION_SCHEMA, header=False)
     canadian_observations = transform_observations(df)
     canadian_observations_count = canadian_observations.count()
-    print(f"Canadian observations in {path}: {canadian_observations_count:,}")
+    print(f"Canadian observations in {SOURCE_PATH}: {canadian_observations_count:,}")
 
     spark.stop()
 

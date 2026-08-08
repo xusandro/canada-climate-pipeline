@@ -1,19 +1,17 @@
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as F
-from pyspark.sql.types import StringType, StructField, StructType, IntegerType
-
+from pyspark.sql.types import StringType, StructField, StructType
 
 OBSERVATION_SCHEMA = StructType(
     [
-        StructField("id", StringType(), nullable = False),
-        StructField("date", StringType(), nullable = False),
-        StructField("element", StringType(), nullable = False),
-        StructField("data_value", StringType(), nullable = True),
-        StructField("m_flag", StringType(), nullable = True),
-        StructField("q_flag", StringType(), nullable = True),
-        StructField("s_flag", StringType(), nullable = True),
-        StructField("obs_time", StringType(), nullable = True)
-
+        StructField("id", StringType(), nullable=False),
+        StructField("date", StringType(), nullable=False),
+        StructField("element", StringType(), nullable=False),
+        StructField("data_value", StringType(), nullable=True),
+        StructField("m_flag", StringType(), nullable=True),
+        StructField("q_flag", StringType(), nullable=True),
+        StructField("s_flag", StringType(), nullable=True),
+        StructField("obs_time", StringType(), nullable=True),
     ]
 )
 
@@ -21,7 +19,7 @@ OBSERVATION_SCHEMA = StructType(
 CANADA = "CA"
 
 
-#	   The 5 core elements according to readme are:
+# The 5 core elements according to readme are:
 # PRCP = Precipitation (tenths of mm)
 # SNOW = Snowfall (mm)
 # SNWD = Snow depth (mm)
@@ -37,17 +35,15 @@ CORE_ELEMENTS = ["TMAX", "TMIN", "PRCP", "TAVG", "SNOW", "SNWD"]
 SOURCE_PATH = "data/raw/2024.csv.gz"
 
 
-
 def transform_observations(df: DataFrame) -> DataFrame:
-    return df.filter(
-        (F.substring(F.col('id'), 1, 2) == CANADA) 
-                     & (F.col('element').isin(CORE_ELEMENTS))
-    ).withColumn(
-        'date', F.to_date(F.col('date'), 'yyyyMMdd')
-    ).withColumn(
-        'data_value', F.col('data_value').cast('int')
+    return (
+        df.filter(
+            (F.substring(F.col("id"), 1, 2) == CANADA)
+            & (F.col("element").isin(CORE_ELEMENTS))
+        )
+        .withColumn("date", F.to_date(F.col("date"), "yyyyMMdd"))
+        .withColumn("data_value", F.col("data_value").cast("int"))
     )
-
 
 
 def main() -> None:
@@ -65,6 +61,7 @@ def main() -> None:
     print(f"Canadian observations in {SOURCE_PATH}: {canadian_observations_count:,}")
 
     spark.stop()
+
 
 if __name__ == "__main__":
     main()

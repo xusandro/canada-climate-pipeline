@@ -30,7 +30,9 @@ def year_of(path: str) -> str:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("year_files", nargs="+", help="by_year CSV files, e.g. data/raw/1990.csv.gz")
+    parser.add_argument(
+        "year_files", nargs="+", help="by_year CSV files, e.g. data/raw/1990.csv.gz"
+    )
     args = parser.parse_args()
 
     spark = (
@@ -52,7 +54,9 @@ def main() -> None:
                 r["element"]: (r["rows"], r["stations"])
                 for r in canadian.where(F.col("element").isin(CORE_ELEMENTS))
                 .groupBy("element")
-                .agg(F.count("*").alias("rows"), F.countDistinct("id").alias("stations"))
+                .agg(
+                    F.count("*").alias("rows"), F.countDistinct("id").alias("stations")
+                )
                 .collect()
             }
             rows.append(

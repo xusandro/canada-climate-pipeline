@@ -67,7 +67,9 @@ CORE_ELEMENTS = ["TMAX", "TMIN", "PRCP", "TAVG", "SNOW", "SNWD"]
 MISSING_SENTINEL = "-9999"
 
 
-def read_fixed_width(spark: SparkSession, path: str, layout: list[tuple[str, int, int]]) -> DataFrame:
+def read_fixed_width(
+    spark: SparkSession, path: str, layout: list[tuple[str, int, int]]
+) -> DataFrame:
     """Read a fixed-width text file into typed-as-string columns, trimming each field."""
     raw = spark.read.text(path)
     return raw.select(
@@ -76,6 +78,7 @@ def read_fixed_width(spark: SparkSession, path: str, layout: list[tuple[str, int
             for name, start, end in layout
         ]
     )
+
 
 # Prints a section header for better view
 def section(title: str) -> None:
@@ -105,7 +108,9 @@ def profile_observations(observations: DataFrame) -> None:
     canada = by_country.where(F.col("country") == CANADA).collect()
     if canada:
         row = canada[0]
-        print(f"Canada: {row['rows']:,} rows ({row['pct_rows']}%) across {row['stations']:,} stations")
+        print(
+            f"Canada: {row['rows']:,} rows ({row['pct_rows']}%) across {row['stations']:,} stations"
+        )
         print(f"Ratio full:Canada = {total_rows / row['rows']:.1f}x")
 
     section("3. Element mix — which measurements actually exist")
@@ -119,7 +124,9 @@ def profile_observations(observations: DataFrame) -> None:
 
     print("Core elements only, Canada only:")
     (
-        enriched.where((F.col("country") == CANADA) & F.col("element").isin(CORE_ELEMENTS))
+        enriched.where(
+            (F.col("country") == CANADA) & F.col("element").isin(CORE_ELEMENTS)
+        )
         .groupBy("element")
         .agg(F.count("*").alias("rows"), F.countDistinct("id").alias("stations"))
         .orderBy(F.desc("rows"))
@@ -135,7 +142,9 @@ def profile_observations(observations: DataFrame) -> None:
     )
     flagged.show(20, truncate=False)
 
-    failed_qc = enriched.where(F.col("q_flag").isNotNull() & (F.col("q_flag") != "")).count()
+    failed_qc = enriched.where(
+        F.col("q_flag").isNotNull() & (F.col("q_flag") != "")
+    ).count()
     print(f"rows failing QC {failed_qc:>14,}  ({100 * failed_qc / total_rows:.4f}%)")
 
     section("5. Missing-value sentinel and date range")
@@ -143,15 +152,19 @@ def profile_observations(observations: DataFrame) -> None:
     print(f"-9999 rows      {sentinel:>14,}")
     non_numeric = enriched.where(F.col("data_value").cast("int").isNull()).count()
     print(f"non-numeric data_value {non_numeric:>9,}")
-    enriched.select(F.min("date").alias("min_date"), F.max("date").alias("max_date")).show()
+    enriched.select(
+        F.min("date").alias("min_date"), F.max("date").alias("max_date")
+    ).show()
 
     print("obs_time populated:")
     (
         enriched.select(
             F.count("*").alias("total"),
-            F.sum(F.when(F.col("obs_time").isNotNull() & (F.col("obs_time") != ""), 1).otherwise(0)).alias(
-                "with_obs_time"
-            ),
+            F.sum(
+                F.when(
+                    F.col("obs_time").isNotNull() & (F.col("obs_time") != ""), 1
+                ).otherwise(0)
+            ).alias("with_obs_time"),
         ).show()
     )
 
@@ -170,7 +183,9 @@ def profile_inventory(inventory: DataFrame) -> None:
 
     section("6. Canadian station inventory")
     print(f"Canadian station-element pairs {canadian.count():,}")
-    print(f"Distinct Canadian stations     {canadian.select('id').distinct().count():,}")
+    print(
+        f"Distinct Canadian stations     {canadian.select('id').distinct().count():,}"
+    )
 
     (
         canadian.where(F.col("element").isin(CORE_ELEMENTS))
@@ -184,7 +199,9 @@ def profile_inventory(inventory: DataFrame) -> None:
         .show(truncate=False)
     )
 
-    section("7. Coverage windows for TMAX — how many stations span a window (OD-2/OD-3)")
+    section(
+        "7. Coverage windows for TMAX — how many stations span a window (OD-2/OD-3)"
+    )
     # The inventory gives only the two endpoints of a station's record, so a station
     # listed as 1950-2026 may still have gaps in between. These counts therefore measure
     # "the record SPANS the window", which is an UPPER BOUND on the number of stations
@@ -192,10 +209,16 @@ def profile_inventory(inventory: DataFrame) -> None:
     # observations themselves, once every year in the window has been ingested.
     tmax = canadian.where(F.col("element") == "TMAX")
     for start in (1990, 2000, 2010):
-        spanning = tmax.where((F.col("first_year") <= start) & (F.col("last_year") >= 2025)).count()
-        print(f"stations whose TMAX record spans {start}-2025: {spanning:>6,}  (upper bound)")
+        spanning = tmax.where(
+            (F.col("first_year") <= start) & (F.col("last_year") >= 2025)
+        ).count()
+        print(
+            f"stations whose TMAX record spans {start}-2025: {spanning:>6,}  (upper bound)"
+        )
 
-    print("\nStations reporting TMAX in a given year (station count by decade of first record):")
+    print(
+        "\nStations reporting TMAX in a given year (station count by decade of first record):"
+    )
     (
         tmax.withColumn("first_decade", (F.col("first_year") / 10).cast("int") * 10)
         .groupBy("first_decade")
@@ -219,7 +242,9 @@ def profile_stations(stations: DataFrame) -> None:
     section("8. Station metadata (dimension source)")
     canadian = stations.where(F.substring(F.col("id"), 1, 2) == CANADA)
     print(f"Canadian stations in ghcnd-stations.txt: {canadian.count():,}")
-    canadian.select("id", "latitude", "longitude", "elevation", "state", "name").show(10, truncate=False)
+    canadian.select("id", "latitude", "longitude", "elevation", "state", "name").show(
+        10, truncate=False
+    )
 
     print("Stations per province/territory code:")
     (
@@ -232,8 +257,12 @@ def profile_stations(stations: DataFrame) -> None:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--year-file", required=True, help="path to a by_year CSV, e.g. 2024.csv.gz")
-    parser.add_argument("--inventory", required=True, help="path to ghcnd-inventory.txt")
+    parser.add_argument(
+        "--year-file", required=True, help="path to a by_year CSV, e.g. 2024.csv.gz"
+    )
+    parser.add_argument(
+        "--inventory", required=True, help="path to ghcnd-inventory.txt"
+    )
     parser.add_argument("--stations", required=True, help="path to ghcnd-stations.txt")
     return parser
 
@@ -254,7 +283,9 @@ def main() -> None:
     spark.sparkContext.setLogLevel("ERROR")
 
     try:
-        observations = spark.read.csv(args.year_file, schema=OBSERVATION_SCHEMA, header=False)
+        observations = spark.read.csv(
+            args.year_file, schema=OBSERVATION_SCHEMA, header=False
+        )
         profile_observations(observations)
         profile_inventory(read_fixed_width(spark, args.inventory, INVENTORY_LAYOUT))
         profile_stations(read_fixed_width(spark, args.stations, STATIONS_LAYOUT))

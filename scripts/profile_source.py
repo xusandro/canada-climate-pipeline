@@ -168,6 +168,30 @@ def profile_observations(observations: DataFrame) -> None:
         ).show()
     )
 
+    section("6. Grain — is (id, date, element) unique, and what does a pivot produce?")
+    # The long-to-wide pivot has to be given an aggregate function, which only makes
+    # sense if a cell can hold more than one value. Checking the key here says whether
+    # first() silently discards anything: if the counts match, it cannot.
+    for label, scope in (
+        ("whole file", enriched),
+        (
+            "pipeline scope (Canada, core elements)",
+            enriched.where(
+                (F.col("country") == CANADA) & F.col("element").isin(CORE_ELEMENTS)
+            ),
+        ),
+    ):
+        rows = scope.count()
+        distinct_key = scope.select("id", "date", "element").distinct().count()
+        distinct_station_date = scope.select("id", "date").distinct().count()
+        print(f"\n{label}")
+        print(f"  rows                       {rows:>12,}")
+        print(f"  distinct (id,date,element) {distinct_key:>12,}")
+        print(f"  duplicates                 {rows - distinct_key:>12,}")
+        print(
+            f"  distinct (id,date)         {distinct_station_date:>12,}  <- pivot output rows"
+        )
+
     enriched.unpersist()
 
 
@@ -181,7 +205,7 @@ def profile_inventory(inventory: DataFrame) -> None:
         .cache()
     )
 
-    section("6. Canadian station inventory")
+    section("7. Canadian station inventory")
     print(f"Canadian station-element pairs {canadian.count():,}")
     print(
         f"Distinct Canadian stations     {canadian.select('id').distinct().count():,}"
@@ -200,7 +224,7 @@ def profile_inventory(inventory: DataFrame) -> None:
     )
 
     section(
-        "7. Coverage windows for TMAX — how many stations span a window (OD-2/OD-3)"
+        "8. Coverage windows for TMAX — how many stations span a window (OD-2/OD-3)"
     )
     # The inventory gives only the two endpoints of a station's record, so a station
     # listed as 1950-2026 may still have gaps in between. These counts therefore measure
@@ -239,7 +263,7 @@ def profile_inventory(inventory: DataFrame) -> None:
 
 
 def profile_stations(stations: DataFrame) -> None:
-    section("8. Station metadata (dimension source)")
+    section("9. Station metadata (dimension source)")
     canadian = stations.where(F.substring(F.col("id"), 1, 2) == CANADA)
     print(f"Canadian stations in ghcnd-stations.txt: {canadian.count():,}")
     canadian.select("id", "latitude", "longitude", "elevation", "state", "name").show(

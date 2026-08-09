@@ -43,6 +43,10 @@ def transform_observations(df: DataFrame) -> DataFrame:
         )
         .withColumn("date", F.to_date(F.col("date"), "yyyyMMdd"))
         .withColumn("data_value", F.col("data_value").cast("int"))
+        .groupBy("id", "date")
+        .pivot("element", CORE_ELEMENTS)
+        .agg(F.first("data_value"))
+        .toDF("id", "date", "tmax", "tmin", "prcp", "tavg", "snow", "snwd")
     )
 
 
@@ -56,9 +60,9 @@ def main() -> None:
     )
     spark.sparkContext.setLogLevel("ERROR")
     df = spark.read.csv(SOURCE_PATH, schema=OBSERVATION_SCHEMA, header=False)
-    canadian_observations = transform_observations(df)
-    canadian_observations_count = canadian_observations.count()
-    print(f"Canadian observations in {SOURCE_PATH}: {canadian_observations_count:,}")
+    station_days = transform_observations(df)
+    station_days_count = station_days.count()
+    print(f"Station days in {SOURCE_PATH}: {station_days_count:,}")
 
     spark.stop()
 

@@ -35,15 +35,23 @@ CORE_ELEMENTS = ["TMAX", "TMIN", "PRCP", "TAVG", "SNOW", "SNWD"]
 SOURCE_PATH = "data/raw/2024.csv.gz"
 
 
-def transform_observations(df: DataFrame) -> DataFrame:
+def filter_observations(df: DataFrame) -> tuple[DataFrame, DataFrame]:
+    selected_data = ( df.filter(
+                (F.substring(F.col("id"), 1, 2) == CANADA)
+                & (F.col("element").isin(CORE_ELEMENTS))
+            )
+            .withColumn("date", F.to_date(F.col("date"), "yyyyMMdd"))
+            .withColumn("data_value", F.col("data_value").cast("int"))
+    )
+
+    clean = selected_data.filter(F.col("q_flag").isNull())
+    rejected = selected_data.filter(F.col("q_flag").isNotNull())
+    return clean, rejected
+
+
+def transform_observations(clean_data: DataFrame) -> DataFrame:
     return (
-        df.filter(
-            (F.substring(F.col("id"), 1, 2) == CANADA)
-            & (F.col("element").isin(CORE_ELEMENTS))
-        )
-        .withColumn("date", F.to_date(F.col("date"), "yyyyMMdd"))
-        .withColumn("data_value", F.col("data_value").cast("int"))
-        .groupBy("id", "date")
+        clean_data.groupBy("id", "date")
         .pivot("element", CORE_ELEMENTS)
         .agg(F.first("data_value"))
         .toDF("id", "date", "tmax", "tmin", "prcp", "tavg", "snow", "snwd")
@@ -60,9 +68,11 @@ def main() -> None:
     )
     spark.sparkContext.setLogLevel("ERROR")
     df = spark.read.csv(SOURCE_PATH, schema=OBSERVATION_SCHEMA, header=False)
-    station_days = transform_observations(df)
+    clean, rejected = filter_observations(df)
+    station_days = transform_observations(clean)
     station_days_count = station_days.count()
     print(f"Station days in {SOURCE_PATH}: {station_days_count:,}")
+    print(f"Rejected rows in {SOURCE_PATH} according to Q_flag: {rejected.count():,}")
 
     spark.stop()
 

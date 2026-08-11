@@ -43,6 +43,8 @@ def prepare_observations(df:DataFrame) -> DataFrame:
                 )
                 .withColumn("date", F.to_date(F.col("date"), "yyyyMMdd"))
                 .withColumn("data_value", F.col("data_value").cast("int"))
+                .withColumn("year", F.year(F.col("date")))
+                .withColumn("month", F.month(F.col("date")))
         )
     return selected_data
 
@@ -61,12 +63,29 @@ def transform_observations(clean_data: DataFrame) -> DataFrame:
         .pivot("element", CORE_ELEMENTS)
         .agg(F.first("data_value"))
         .toDF("id", "date", "tmax", "tmin", "prcp", "tavg", "snow", "snwd")
+        .withColumn("year", F.year(F.col("date")))
+        .withColumn("month", F.month(F.col("date")))
         .withColumn("tmax", F.col("tmax") / 10)
         .withColumn("tmin", F.col("tmin") / 10)
         .withColumn("tavg", F.col("tavg") / 10)
         .withColumn("prcp", F.col("prcp") / 10)
     )
 
+def write_clean_data(df: DataFrame) -> None:
+    (df.repartition("year", "month")
+     .write
+     .mode("overwrite")
+     .partitionBy("year", "month")
+     .parquet("data/processed/observations.parquet")
+     )
+
+def write_quarantined_data(df: DataFrame) -> None:
+    (df.repartition("year", "month")
+     .write
+     .mode("overwrite")
+     .partitionBy("year", "month")
+     .parquet("data/quarantined/observations.parquet")
+     )
 
 def main() -> None:
     spark = (
@@ -76,11 +95,19 @@ def main() -> None:
         .config("spark.driver.memory", "12g")
         .getOrCreate()
     )
+
+    spark.conf.set(
+    "spark.sql.sources.partitionOverwriteMode",
+    "dynamic"
+    )
+
     spark.sparkContext.setLogLevel("ERROR")
     df = spark.read.csv(SOURCE_PATH, schema=OBSERVATION_SCHEMA, header=False)
     prepared = prepare_observations(df).cache()
     clean, rejected = split_by_quality(prepared)
+    write_quarantined_data(rejected)
     station_days = transform_observations(clean)
+    write_clean_data(station_days)
     station_days_count = station_days.count()
     print(f"Station days in {SOURCE_PATH}: {station_days_count:,}")
     print(f"Rejected rows in {SOURCE_PATH} according to Q_flag: {rejected.count():,}")

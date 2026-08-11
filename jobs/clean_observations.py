@@ -61,6 +61,10 @@ def transform_observations(clean_data: DataFrame) -> DataFrame:
         .pivot("element", CORE_ELEMENTS)
         .agg(F.first("data_value"))
         .toDF("id", "date", "tmax", "tmin", "prcp", "tavg", "snow", "snwd")
+        .withColumn("tmax", F.col("tmax") / 10)
+        .withColumn("tmin", F.col("tmin") / 10)
+        .withColumn("tavg", F.col("tavg") / 10)
+        .withColumn("prcp", F.col("prcp") / 10)
     )
 
 

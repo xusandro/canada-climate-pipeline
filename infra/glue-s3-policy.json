@@ -1,0 +1,28 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ReadNoaaOpenDataSource",
+      "Effect": "Allow",
+      "Action": ["s3:GetObject", "s3:ListBucket"],
+      "Resource": [
+        "arn:aws:s3:::noaa-ghcn-pds",
+        "arn:aws:s3:::noaa-ghcn-pds/*"
+      ]
+    },
+    {
+      "Sid": "ReadWriteProjectBucket",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:PutObject",
+        "s3:DeleteObject",
+        "s3:ListBucket"
+      ],
+      "Resource": [
+        "arn:aws:s3:::canada-climate-pipeline",
+        "arn:aws:s3:::canada-climate-pipeline/*"
+      ]
+    }
+  ]
+}

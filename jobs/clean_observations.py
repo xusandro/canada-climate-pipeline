@@ -2,6 +2,10 @@ from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as F
 from pyspark.sql.types import StringType, StructField, StructType
 import argparse
+import sys
+
+# Check if the script is running in a local environment or on Glue
+LOCAL = "--JOB_NAME" not in sys.argv
 
 OBSERVATION_SCHEMA = StructType(
     [
@@ -112,26 +116,25 @@ def build_parser() -> argparse.ArgumentParser:
     )
     return parser
 
+def build_spark(local: bool) -> SparkSession:
+    
+    builder = (
+        SparkSession.builder.appName("clean_observations")
+        .config("spark.sql.session.timeZone", "UTC")
+        .config("spark.sql.sources.partitionOverwriteMode", "dynamic")
+    )
+
+    if local:
+        builder = builder.master("local[*]").config("spark.driver.memory", "12g")
+
+    return builder.getOrCreate()
 
 
 
 def main() -> None:
 
-    args = build_parser().parse_args()
-        
-    spark = (
-        SparkSession.builder.appName("clean_observations")
-        .master("local[*]")
-        .config("spark.sql.session.timeZone", "UTC")
-        .config("spark.driver.memory", "12g")
-        .getOrCreate()
-    )
-
-    spark.conf.set(
-    "spark.sql.sources.partitionOverwriteMode",
-    "dynamic"
-    )
-
+    args, unknown = build_parser().parse_known_args()
+    spark = build_spark(LOCAL)
     spark.sparkContext.setLogLevel("ERROR")
     source = f"{args.source_prefix}/{args.year}.csv.gz"
     df = spark.read.csv(source, schema=OBSERVATION_SCHEMA, header=False)

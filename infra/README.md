@@ -34,3 +34,21 @@ and CloudWatch Logs.
 | `ReadWriteProjectBucket` | `GetObject`, `PutObject`, `DeleteObject`, `ListBucket` on the project bucket | `DeleteObject` is **required**, not incidental: dynamic partition overwrite replaces a partition by deleting the old files first. Without it the job fails only on a re-run, not on the first write. |
 
 Scoped to these two buckets by ARN rather than `"Resource": "*"`.
+
+## IAM role — `RedshiftCanadaClimatePipeline`
+
+**Trust policy** (`redshift-trust-policy.json`) — only the Redshift service may assume the role.
+
+**Inline policy** (`redshift-s3-policy.json`), one statement:
+
+| Statement | Grants | Why |
+|---|---|---|
+| `ReadProjectBucketForCopy` | `GetObject`, `ListBucket` on the project bucket | `COPY` is run by Redshift itself, not by the client: the service assumes this role to read from S3, so no credentials ever appear in the SQL. Read-only — `UNLOAD`, which writes back to S3, is not used. |
+
+Deliberately narrower than the console default, `AmazonRedshiftAllCommandsFullAccess`, which
+also grants SageMaker, Glue and CloudWatch access. Redshift Spectrum is **not** covered; it
+would need Glue Data Catalog permissions, to be added only if the warehouse ever queries the
+lake directly.
+
+Created from the CLI rather than the console, because the console sign-in identity lacks
+`iam:CreateRole`.

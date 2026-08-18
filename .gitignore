@@ -4,4 +4,12 @@ data/
 __pycache__/
 *.pyc
 DECISIONS.md
+.env
+
+dbt-venv/
+logs/
+dbt_climate/target/
+dbt_climate/logs/
+dbt_climate/dbt_packages/
+dbt_profiles/.user.yml
 

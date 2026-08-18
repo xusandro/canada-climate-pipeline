@@ -1,0 +1,23 @@
+dbt_climate:
+  outputs:
+    dev:
+      database: dev
+      host: canada-climate.964107085653.us-east-1.redshift-serverless.amazonaws.com
+      password: '{{ env_var(''REDSHIFT_DBT_PASSWORD'') }}'
+      port: 5439
+      schema: sandro
+      threads: 4
+      type: redshift
+      user: dbt_user
+      connect_timeout: 30
+    prod:
+      database: dev
+      host: canada-climate.964107085653.us-east-1.redshift-serverless.amazonaws.com
+      password: '{{ env_var(''REDSHIFT_DBT_PASSWORD'') }}'
+      port: 5439
+      schema: sandro
+      threads: 4
+      type: redshift
+      user: dbt_user
+      connect_timeout: 30
+  target: dev

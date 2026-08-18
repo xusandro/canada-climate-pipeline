@@ -1,4 +1,6 @@
-CREATE TABLE IF NOT EXISTS dim_stations(
+
+
+CREATE TABLE IF NOT EXISTS raw_stations(
     id CHAR(11) NOT NULL,
     latitude DOUBLE PRECISION,
     longitude DOUBLE PRECISION,
@@ -13,7 +15,7 @@ DISTSTYLE ALL
 ENCODE AUTO;
 
 
-CREATE TABLE IF NOT EXISTS fact_observations(
+CREATE TABLE IF NOT EXISTS raw_observations(
     id CHAR(11) NOT NULL,
     date DATE NOT NULL,
     tmax DOUBLE PRECISION,

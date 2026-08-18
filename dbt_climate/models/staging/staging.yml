@@ -1,0 +1,32 @@
+version: 2
+
+sources:
+  - name: raw
+    database: dev
+    schema: public
+    tables:
+      - name: raw_stations
+        description: "Raw station metadata ingested from
+          s3://canada-climate-pipeline/processed/stations.parquet/ via COPY.
+          Grain: one row per station. 9,362 Canadian stations."
+        columns:
+          - name: id
+            tests:
+              - not_null
+              - unique
+
+      - name: raw_observations
+        description: "Station-day obs
+          s3://canada-climate-pipeline/processed/observations.parquet/ via COPY.
+          Grain: one row per station covering 1990-2025."
+        columns:
+          - name: id
+            tests:
+              - not_null
+              - relationships:
+                  arguments:
+                    to: source('raw', 'raw_stations')
+                    field: id
+          - name: date
+            tests:
+              - not_null     

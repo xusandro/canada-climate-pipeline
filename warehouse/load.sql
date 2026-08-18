@@ -2,11 +2,11 @@
 -- Truncate the tables before loading new data Because Redshift appends by default and we want to avoid duplicate
 
 
-TRUNCATE dim_stations;
-TRUNCATE fact_observations;
+TRUNCATE raw_stations;
+TRUNCATE raw_observations;
 
 
-COPY fact_observations(
+COPY raw_observations(
     id,
     date,
     tmax,
@@ -21,7 +21,7 @@ IAM_ROLE DEFAULT
 FORMAT AS PARQUET;
 
 
-COPY dim_stations(
+COPY raw_stations(
     id,
     latitude,
     longitude,
@@ -37,5 +37,5 @@ IAM_ROLE DEFAULT
 FORMAT AS PARQUET;
 
 
-SELECT COUNT(*) FROM fact_observations;
-SELECT COUNT(*) FROM dim_stations;
+SELECT COUNT(*) FROM raw_observations;
+SELECT COUNT(*) FROM raw_stations;

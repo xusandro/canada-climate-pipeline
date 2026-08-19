@@ -1,0 +1,43 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "RunAndPollGlueJobs",
+      "Effect": "Allow",
+      "Action": [
+        "glue:StartJobRun",
+        "glue:GetJobRun",
+        "glue:GetJobRuns",
+        "glue:BatchStopJobRun"
+      ],
+      "Resource": [
+        "arn:aws:glue:us-east-1:964107085653:job/canada-climate-clean-observations",
+        "arn:aws:glue:us-east-1:964107085653:job/canada-climate-stations-dim"
+      ]
+    },
+    {
+      "Sid": "ConnectToServerlessWorkgroup",
+      "Effect": "Allow",
+      "Action": "redshift-serverless:GetCredentials",
+      "Resource": "arn:aws:redshift-serverless:us-east-1:964107085653:workgroup/f5b67629-0aec-49cc-b127-4c0d9a084b02"
+    },
+    {
+      "Sid": "RunRedshiftStatements",
+      "Effect": "Allow",
+      "Action": [
+        "redshift-data:ExecuteStatement",
+        "redshift-data:BatchExecuteStatement"
+      ],
+      "Resource": "arn:aws:redshift-serverless:us-east-1:964107085653:workgroup/f5b67629-0aec-49cc-b127-4c0d9a084b02"
+    },
+    {
+      "Sid": "PollRedshiftStatements",
+      "Effect": "Allow",
+      "Action": [
+        "redshift-data:DescribeStatement",
+        "redshift-data:GetStatementResult"
+      ],
+      "Resource": "*"
+    }
+  ]
+}

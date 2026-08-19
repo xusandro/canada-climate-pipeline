@@ -1,0 +1,160 @@
+{
+  "Comment": "Daily Canada climate pipeline orchestration",
+  "StartAt": "GetCurrentYear",
+  "States": {
+    "GetCurrentYear": {
+      "Type": "Pass",
+      "Parameters": {
+        "CurrentYear.$": "States.ArrayGetItem(States.StringSplit($$.Execution.StartTime, '-'), 0)"
+      },
+      "Next": "BuildYearWindow"
+    },
+
+    "BuildYearWindow": {
+      "Type": "Pass",
+      "Parameters": {
+        "Years.$": "States.Array(States.Format('{}', States.MathAdd(States.StringToJson($.CurrentYear), -1)), $.CurrentYear)"
+      },
+      "Next": "IngestParallel"
+    },
+
+    "IngestParallel": {
+      "Type": "Parallel",
+      "Branches": [
+        {
+          "StartAt": "RunStationsDim",
+          "States": {
+            "RunStationsDim": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::glue:startJobRun.sync",
+              "Parameters": {
+                "JobName": "canada-climate-stations-dim"
+              },
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "States.TaskFailed"
+                  ],
+                  "IntervalSeconds": 10,
+                  "MaxAttempts": 2,
+                  "BackoffRate": 2
+                },
+                {
+                  "ErrorEquals": [
+                    "Glue.ConcurrentRunsExceededException"
+                  ],
+                  "IntervalSeconds": 60,
+                  "MaxAttempts": 5,
+                  "BackoffRate": 1.5
+                }
+              ],
+              "End": true
+            }
+          }
+        },
+
+        {
+          "StartAt": "RunObservations",
+          "States": {
+            "RunObservations": {
+              "Type": "Map",
+              "ItemsPath": "$.Years",
+              "MaxConcurrency": 2,
+              "ItemProcessor": {
+                "StartAt": "RunObservationYear",
+                "States": {
+                  "RunObservationYear": {
+                    "Type": "Task",
+                    "Resource": "arn:aws:states:::glue:startJobRun.sync",
+                    "Parameters": {
+                      "JobName": "canada-climate-clean-observations",
+                      "Arguments": {
+                        "--year.$": "$"
+                      }
+                    },
+                    "Retry": [
+                      {
+                        "ErrorEquals": [
+                          "States.TaskFailed"
+                        ],
+                        "IntervalSeconds": 10,
+                        "MaxAttempts": 2,
+                        "BackoffRate": 2
+                      }
+                    ],
+                    "End": true
+                  }
+                }
+              },
+              "End": true
+            }
+          }
+        }
+      ],
+      "Next": "StartLoad"
+    },
+
+    "StartLoad": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:redshiftdata:batchExecuteStatement",
+      "Parameters": {
+        "WorkgroupName": "canada-climate",
+        "Database": "dev",
+        "Sqls": [
+          "DELETE FROM public.raw_stations;",
+          "DELETE FROM public.raw_observations;",
+          "COPY public.raw_observations(id,date,tmax,tmin,prcp,tavg,snow,snwd) FROM 's3://canada-climate-pipeline/processed/observations.parquet/' IAM_ROLE DEFAULT FORMAT AS PARQUET;",
+          "COPY public.raw_stations(id,latitude,longitude,elevation,state,name,gsn_flag,hcn_crn_flag,wmo_id) FROM 's3://canada-climate-pipeline/processed/stations.parquet/' IAM_ROLE DEFAULT FORMAT AS PARQUET;"
+        ]
+      },
+      "Next": "WaitForLoad"
+    },
+
+    "WaitForLoad": {
+      "Type": "Wait",
+      "Seconds": 10,
+      "Next": "CheckLoad"
+    },
+
+    "CheckLoad": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:redshiftdata:describeStatement",
+      "Parameters": {
+        "Id.$": "$.Id"
+      },
+      "Next": "LoadFinished?"
+    },
+
+    "LoadFinished?": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.Status",
+          "StringEquals": "FINISHED",
+          "Next": "PipelineSucceeded"
+        },
+        {
+          "Variable": "$.Status",
+          "StringEquals": "FAILED",
+          "Next": "PipelineFailed"
+        },
+        {
+          "Variable": "$.Status",
+          "StringEquals": "ABORTED",
+          "Next": "PipelineFailed"
+        }
+      ],
+      "Default": "WaitForLoad"
+    },
+
+    "PipelineSucceeded": {
+      "Type": "Succeed"
+    },
+
+    "PipelineFailed": {
+      "Type": "Fail",
+      "Error": "RedshiftLoadFailed",
+      "Cause": "Redshift batch load failed or was aborted."
+    }
+  }
+}

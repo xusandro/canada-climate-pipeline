@@ -1,0 +1,82 @@
+version: 2
+
+models:
+
+  - name: dim_date
+    description: >
+      Date dimension built from the distinct dates present in the observations, not a
+      generated calendar. Measured complete - 13,149 days, exactly 1990-2025 with no
+      gaps - but that is an observed property, not a guarantee: a day on which no
+      Canadian station reported would be silently absent from this dimension.
+    columns:
+      - name: date_day
+        tests: [unique, not_null]
+      - name: year
+        tests: [not_null]
+      - name: month
+        tests: [not_null]
+      - name: day
+        tests: [not_null]
+      - name: season
+        tests:
+          - accepted_values:
+              arguments:                          
+                values: ['winter','spring','summer','fall']
+
+  - name: dim_station
+    description: >
+      All 9,362 Canadian GHCN stations. Deliberately not filtered to stations that
+      have reported since 1990: pruning the dimension would leave future fact rows
+      without a match.
+    columns:
+      - name: station_id         
+        tests: [unique, not_null]
+      - name: latitude
+        tests: [not_null]
+      - name: longitude
+        tests: [not_null]
+      - name: elevation_m
+        tests: [not_null]
+      - name: station_name
+        tests: [not_null]
+
+  - name: fct_daily_weather
+    description: >
+      Station-day fact table, 22,162,968 rows. Grain: one row per station per date.
+      Units are carried in the column names (`_c` = degrees Celsius, `_mm` =
+      millimetres) because GHCN's scaling factor differs per element: temperature and
+      precipitation are published in tenths, snowfall and snow depth are not.
+    columns:
+      - name: station_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_station')
+                field: station_id
+      - name: observation_date
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_day
+
+  - name: mart_yearly_climate
+    description: >
+      Yearly climate aggregates, 1990-2025. Grain: one row per year.
+      Averages are taken over a shifting station population (Canadian TMAX stations:
+      2,241 in 1990, 1,013 in 2023), so `station_count` is published beside every
+      figure - it exposes that bias, it does not correct it.
+      2024 and 2025 must not carry a trend: a Canada-specific feed stopped delivering
+      temperature to GHCN from May 2024, so `avg_tmax_c` reads 2 C for 2024 against
+      ~10 C in every other year. Use `tmax_days / station_days` to judge a year.
+    columns:
+      - name: observation_year
+        tests: [not_null]
+      - name: station_count
+        tests: [not_null]
+      - name: tmax_days
+        tests: [not_null]
+      - name: station_days
+        tests: [not_null]

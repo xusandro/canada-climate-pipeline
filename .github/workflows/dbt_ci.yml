@@ -12,8 +12,8 @@ on:
       - "dbt_climate/**"
       - "dbt_profiles/**"
 
-  schedule:
-    - cron: "0 10 * * *"  # 10:00 UTC, after Step Functions at 09:00 UTC
+#  schedule:
+#    - cron: "0 10 * * *"  # 10:00 UTC, after Step Functions at 09:00 UTC
 
   workflow_dispatch:
 

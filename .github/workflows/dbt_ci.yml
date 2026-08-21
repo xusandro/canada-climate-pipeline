@@ -30,7 +30,7 @@ jobs:
       contents: read
 
     env:
-      REDSHIFT_PASSWORD: ${{ secrets.REDSHIFT_DBT_PASSWORD }}
+      REDSHIFT_DBT_PASSWORD: ${{ secrets.REDSHIFT_DBT_PASSWORD }}
 
     steps:
       - name: Checkout

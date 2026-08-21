@@ -13,7 +13,10 @@
           "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
         },
         "StringLike": {
-          "token.actions.githubusercontent.com:sub": "repo:xusandro/canada-climate-pipeline:*"
+          "token.actions.githubusercontent.com:sub": [
+            "repo:xusandro@106581919/canada-climate-pipeline@1328090550:*",
+            "repo:xusandro/canada-climate-pipeline:*"
+          ]
         }
       }
     }

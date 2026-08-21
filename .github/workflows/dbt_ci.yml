@@ -1,0 +1,81 @@
+name: dbt CI
+
+on:
+  push:
+    paths:
+      - "dbt_climate/**"
+      - "dbt_profiles/**"
+      - ".github/workflows/dbt_ci.yml"
+
+  pull_request:
+    paths:
+      - "dbt_climate/**"
+      - "dbt_profiles/**"
+
+  schedule:
+    - cron: "0 10 * * *"  # 10:00 UTC, after Step Functions at 09:00 UTC
+
+  workflow_dispatch:
+
+concurrency:
+  group: dbt-ci
+  cancel-in-progress: false
+
+jobs:
+  dbt-build:
+    runs-on: ubuntu-latest
+
+    permissions:
+      id-token: write
+      contents: read
+
+    env:
+      REDSHIFT_PASSWORD: ${{ secrets.REDSHIFT_PASSWORD }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::964107085653:role/GitHubActionsCanadaClimatePipeline
+          aws-region: us-east-1
+
+      - name: Get runner public IP
+        run: |
+          RUNNER_IP=$(curl -s https://checkip.amazonaws.com)
+          echo "RUNNER_IP=$RUNNER_IP" >> "$GITHUB_ENV"
+          echo "Runner IP: $RUNNER_IP"
+
+      - name: Open Redshift to this runner
+        run: |
+          aws ec2 authorize-security-group-ingress \
+            --group-id sg-0b9a3d447705d2593 \
+            --protocol tcp \
+            --port 5439 \
+            --cidr "${RUNNER_IP}/32"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dbt-redshift
+        run: pip install dbt-redshift==1.11.0
+
+      - name: dbt build
+        run: |
+          dbt build \
+            --project-dir dbt_climate \
+            --profiles-dir dbt_profiles \
+            ${{ github.event_name == 'schedule' && '--target prod' || '' }}
+
+      - name: Close Redshift to this runner
+        if: always() && env.RUNNER_IP != ''
+        run: |
+          aws ec2 revoke-security-group-ingress \
+            --group-id sg-0b9a3d447705d2593 \
+            --protocol tcp \
+            --port 5439 \
+            --cidr "${RUNNER_IP}/32"
